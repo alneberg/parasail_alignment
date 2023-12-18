@@ -1,0 +1,5 @@
+b849695a-7364-4db4-83c4-3b0d66abf67f	462	30	79	+	illumina_ud_len10_i7	49	0	49	37	39	32	NM:i:12	ms:i:210	AS:i:210	nn:i:10	tp:A:P	cm:i:6	s1:i:32	s2:i:0	de:f:0.2449	rl:i:0	cg:Z:49M	cs:Z::24*na*na*nc*nc*na*nc*na*nt*ng*ng:2*ct*ta:11
+46bd80ae-144f-4007-901c-425e7ebd77a8	315	256	305	-	illumina_ud_len10_i7	49	0	49	39	39	34	NM:i:10	ms:i:224	AS:i:224	nn:i:10	tp:A:P	cm:i:6	s1:i:32	s2:i:0	de:f:0.2041	rl:i:0	cg:Z:49M	cs:Z::24*ng*nt*na*nt*nt*nc*nt*nc*nt*na:15
+d5025ec5-e7f2-4e5a-8179-44502b7b07b0	425	359	412	-	illumina_ud_len10_i5	53	0	53	43	43	35	NM:i:10	ms:i:248	AS:i:248	nn:i:10	tp:A:P	cm:i:6	s1:i:32	s2:i:0	de:f:0.1887	rl:i:0	cg:Z:53M	cs:Z::29*nc*nc*nt*nt*ng*na*na*nc*ng*ng:14
+d5025ec5-e7f2-4e5a-8179-44502b7b07b0	425	31	80	+	illumina_ud_len10_i7	49	0	49	39	39	34	NM:i:10	ms:i:224	AS:i:224	nn:i:10	tp:A:P	cm:i:6	s1:i:32	s2:i:0	de:f:0.2041	rl:i:0	cg:Z:49M	cs:Z::24*na*nt*nc*na*nc*na*nt*na*nt*ng:15
+c8833341-ca23-4587-ab16-76fd235ed40e	370	31	78	+	illumina_ud_len10_i7	49	2	49	37	37	31	NM:i:10	ms:i:212	AS:i:212	nn:i:10	tp:A:P	cm:i:5	s1:i:30	s2:i:0	de:f:0.2128	rl:i:0	cg:Z:47M	cs:Z::22*na*na*nc*nc*ng*nc*na*nt*nc*ng:15
