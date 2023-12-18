@@ -62,10 +62,10 @@ def align_single_seq(query_seq, ref_seq):
 
         adapter2 = result.traceback.query[(bc_start + barcode_length) :]
 
-        AlignmentResult(
-            query=result.traceback.query,
+        return AlignmentResult(
+            query_seq=result.traceback.query,
             alignment_line=result.traceback.comp,
-            reference=result.traceback.ref,
+            ref_seq=result.traceback.ref,
             adapter1=adapter1,
             barcode=inferred_barcode,
             adapter2=adapter2,
@@ -84,4 +84,4 @@ class AlignmentResult:
         self.adapter2 = adapter2
 
     def __str__(self):
-        return f"Query:\t{self.query_seq}\nAlignment:\t{self.alignment_string}\nReference:\t{self.ref_seq}"
+        return f"Query:\t{self.query_seq}\nAlign:\t{self.alignment_string}\nRef:\t{self.ref_seq}"
