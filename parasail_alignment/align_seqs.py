@@ -1,3 +1,4 @@
+import fastq as fq
 import parasail
 
 
@@ -35,7 +36,37 @@ def setup_matrix():
     return matrix
 
 
-def align_single_seq(query_seq, ref_seq):
+class AlignmentResult:
+    def __init__(self, query_seq, alignment_line, ref_seq, adapter1, barcode, adapter2):
+        self.query_seq = query_seq
+        self.alignment_string = alignment_line
+        self.ref_seq = ref_seq
+        self.adapter1 = adapter1
+        self.barcode = barcode
+        self.adapter2 = adapter2
+
+    def __str__(self):
+        return f"Query:\t{self.query_seq}\nAlign:\t{self.alignment_string}\nRef:\t{self.ref_seq}"
+
+
+def align_single_seq(query_seq: str, ref_seq: str):
+    """
+    Aligns a single query sequence to a reference sequence using the Smith-Waterman algorithm.
+
+    The query sequence corresponds to the ONT read, while the reference sequence corresponds to the Illumina adapter,
+    including the 'N's for the barcode. The function uses the parasail library to perform the alignment and then
+    extracts the barcode and adapter sequences from the alignment.
+
+    Parameters:
+    query_seq (str): The query sequence to be aligned.
+    ref_seq (str): The reference sequence to which the query sequence is aligned.
+
+    Returns:
+    AlignmentResult: An object containing the aligned sequences, the alignment line, and the extracted adapter and barcode sequences.
+
+    Raises:
+    NoAlignmentFoundError: If no alignment could be found between the query and reference sequences.
+    """
     matrix = setup_matrix()
 
     result = parasail.sw_trace(query_seq, ref_seq, 2, 4, matrix)
@@ -62,26 +93,28 @@ def align_single_seq(query_seq, ref_seq):
 
         adapter2 = result.traceback.query[(bc_start + barcode_length) :]
 
-        return AlignmentResult(
-            query_seq=result.traceback.query,
-            alignment_line=result.traceback.comp,
-            ref_seq=result.traceback.ref,
-            adapter1=adapter1,
-            barcode=inferred_barcode,
-            adapter2=adapter2,
+        print(
+            AlignmentResult(
+                query_seq=result.traceback.query,
+                alignment_line=result.traceback.comp,
+                ref_seq=result.traceback.ref,
+                adapter1=adapter1,
+                barcode=inferred_barcode,
+                adapter2=adapter2,
+            )
         )
     else:
         raise NoAlignmentFoundError("No alignment found")
 
 
-class AlignmentResult:
-    def __init__(self, query_seq, alignment_line, ref_seq, adapter1, barcode, adapter2):
-        self.query_seq = query_seq
-        self.alignment_string = alignment_line
-        self.ref_seq = ref_seq
-        self.adapter1 = adapter1
-        self.barcode = barcode
-        self.adapter2 = adapter2
+def align_multiple_seq(query_file: str, ref_file: str):
+    ref_seqs = fq.read(ref_file)
 
-    def __str__(self):
-        return f"Query:\t{self.query_seq}\nAlign:\t{self.alignment_string}\nRef:\t{self.ref_seq}"
+    for query_seq in fq.read(query_file):
+        for ref_seq in ref_seqs:
+            try:
+                print(align_single_seq(query_seq.getSeq(), ref_seq.getSeq()))
+            except NoAlignmentFoundError:
+                print(
+                    f"No alignment found for {query_seq.getHead().split(' ')[0]} and {ref_seq.getHead().split(' ')[0]}"
+                )
