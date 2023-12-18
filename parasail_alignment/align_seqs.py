@@ -1,5 +1,9 @@
 import parasail
-import sys
+
+
+class NoAlignmentFoundError(Exception):
+    pass
+
 
 def find(char, string):
     """
@@ -19,9 +23,10 @@ def find(char, string):
         if string[i] == char:
             yield i
 
+
 def setup_matrix():
-    matrix = parasail.matrix_create('ACGTN', 5, -1)
-    
+    matrix = parasail.matrix_create("ACGTN", 5, -1)
+
     pointers = [4, 10, 16, 22, 24, 25, 26, 27]
 
     for i in pointers:
@@ -38,9 +43,9 @@ def align_single_seq(query_seq, ref_seq):
     ns_in_input = list(find("N", ref_seq))
     barcode_length = len(ns_in_input)
 
-    idxs = list(find("N", result.traceback.ref)) 
+    idxs = list(find("N", result.traceback.ref))
 
-    # Also stolen from sockeye 
+    # Also stolen from sockeye
     if len(idxs) > 0:
         # The Ns in the probe successfully aligned to sequence
         bc_start = min(idxs)
@@ -51,13 +56,32 @@ def align_single_seq(query_seq, ref_seq):
 
         # The barcode + UMI sequences in the read correspond to the
         # positions of the aligned Ns in the probe sequence
-        barcode = result.traceback.query[
+        inferred_barcode = result.traceback.query[
             bc_start : (bc_start + barcode_length)
         ]
-        
-        print(barcode)
-        print(result.traceback.query)
-        print(result.traceback.comp)
-        print(result.traceback.ref)
+
+        adapter2 = result.traceback.query[(bc_start + barcode_length) :]
+
+        AlignmentResult(
+            query=result.traceback.query,
+            alignment_line=result.traceback.comp,
+            reference=result.traceback.ref,
+            adapter1=adapter1,
+            barcode=inferred_barcode,
+            adapter2=adapter2,
+        )
     else:
-        print("No Ns found ... ", file=sys.stderr)
+        raise NoAlignmentFoundError("No alignment found")
+
+
+class AlignmentResult:
+    def __init__(self, query_seq, alignment_line, ref_seq, adapter1, barcode, adapter2):
+        self.query_seq = query_seq
+        self.alignment_string = alignment_line
+        self.ref_seq = ref_seq
+        self.adapter1 = adapter1
+        self.barcode = barcode
+        self.adapter2 = adapter2
+
+    def __str__(self):
+        return f"Query:\t{self.query_seq}\nAlignment:\t{self.alignment_string}\nReference:\t{self.ref_seq}"
