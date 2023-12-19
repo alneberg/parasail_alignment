@@ -109,7 +109,8 @@ def align_single_seq(query_seq: str, ref_seq: str):
 
 
 def align_multiple_seq(query_file: str, ref_file: str):
-    ref_seqs = miniFasta.read(ref_file)
+    # Populate a list to enable the reuse of the iterator, otherwise it will be empty after the first iteration
+    ref_seqs = [ref_seq for ref_seq in miniFasta.read(ref_file)]
 
     for query_seq in fastq.read(query_file):
         for ref_seq in ref_seqs:
