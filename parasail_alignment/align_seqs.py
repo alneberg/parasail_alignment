@@ -53,20 +53,30 @@ class AlignmentResult:
         query_seq,
         alignment_line,
         ref_seq,
+        alignment_start,
+        alignment_end,
+        orientation,
         adapter1,
         adapter1_ed,
         barcode,
         adapter2,
         adapter2_ed,
+        alignment_score,
+        alignment_reverse_score,
     ):
         self.query_seq = query_seq
         self.alignment_string = alignment_line
         self.ref_seq = ref_seq
+        self.alignment_start = str(alignment_start)
+        self.alignment_end = str(alignment_end)
+        self.orientation = orientation
         self.adapter1 = adapter1
         self.adapter1_ed = str(adapter1_ed)
         self.barcode = barcode
         self.adapter2 = adapter2
         self.adapter2_ed = str(adapter2_ed)
+        self.alignment_score = str(alignment_score)
+        self.alignment_reverse_score = str(alignment_reverse_score)
         self.query_id = None
         self.ref_id = None
 
@@ -82,14 +92,19 @@ class AlignmentResult:
             [
                 self.query_id,
                 self.ref_id,
-                self.query_seq,
-                self.alignment_string,
-                self.ref_seq,
+                self.alignment_start,
+                self.alignment_end,
+                self.orientation,
+                self.alignment_score,
+                self.alignment_reverse_score,
                 self.adapter1,
                 self.adapter1_ed,
                 self.barcode,
                 self.adapter2,
                 self.adapter2_ed,
+                self.query_seq,
+                self.alignment_string,
+                self.ref_seq,
             ]
         )
 
@@ -98,14 +113,19 @@ class AlignmentResult:
             [
                 "query_id",
                 "ref_id",
-                "query_seq",
-                "alignment_string",
-                "ref_seq",
+                "alignment_start",
+                "alignment_end",
+                "orientation",
+                "alignment_score",
+                "alignment_reverse_score",
                 "adapter1",
                 "adapter1_ed",
                 "barcode",
                 "adapter2",
                 "adapter2_ed",
+                "query_seq",
+                "alignment_string",
+                "ref_seq",
             ]
         )
 
@@ -138,14 +158,16 @@ def align_single_seq(query_seq: str, ref_seq: str):
     if result_plus.score > result_minus.score:
         result = result_plus
         orientation = "+"
+        reverse_score = result_minus.score
     else:
         result = result_minus
         orientation = "-"
+        reverse_score = result_plus.score
 
     ns_in_input = list(find("N", ref_seq))
     barcode_length = len(ns_in_input)
     adapter1_probe_seq = ref_seq[0 : ns_in_input[0]]
-    adapter2_probe_seq = ref_seq[(ns_in_input[-1]+1) :]
+    adapter2_probe_seq = ref_seq[(ns_in_input[-1] + 1) :]
 
     idxs = list(find("N", result.traceback.ref))
 
@@ -154,8 +176,6 @@ def align_single_seq(query_seq: str, ref_seq: str):
         # The Ns in the probe successfully aligned to sequence
         bc_start = min(idxs)
 
-
-            
         # The read1 adapter comprises the first part of the alignment
         adapter1 = result.traceback.query[0:bc_start]
         adapter1_ed = editdistance.eval(adapter1, adapter1_probe_seq)
@@ -169,8 +189,8 @@ def align_single_seq(query_seq: str, ref_seq: str):
         adapter2 = result.traceback.query[(bc_start + barcode_length) :]
         adapter2_ed = editdistance.eval(adapter2, adapter2_probe_seq)
 
-        aligned_length = len(result.traceback.query.replace('-', '')) 
-        if orientation == '-':
+        aligned_length = len(result.traceback.query.replace("-", ""))
+        if orientation == "-":
             alignment_start = len(query_seq) - (result.end_query + 1 - aligned_length)
             alignment_end = len(query_seq) - (result.end_query + 1)
         else:
@@ -181,11 +201,16 @@ def align_single_seq(query_seq: str, ref_seq: str):
             query_seq=result.traceback.query,
             alignment_line=result.traceback.comp,
             ref_seq=result.traceback.ref,
+            alignment_start=alignment_start,
+            alignment_end=alignment_end,
+            orientation=orientation,
             adapter1=adapter1,
             adapter1_ed=adapter1_ed,
             barcode=inferred_barcode,
             adapter2=adapter2,
             adapter2_ed=adapter2_ed,
+            alignment_score=result.score,
+            alignment_reverse_score=reverse_score,
         )
     else:
         raise NoAlignmentFoundError("No alignment found")
@@ -202,9 +227,7 @@ def align_multiple_seq(query_file: str, ref_file: str):
         for ref_seq, ref_seq_id in zip(ref_seqs, ref_seq_ids):
             try:
                 result = align_single_seq(query_seq.getSeq(), ref_seq.getSeq())
-                result.add_ids(
-                    query_seq.getHead().split(" ")[0], ref_seq_id
-                )
+                result.add_ids(query_seq.getHead().split(" ")[0], ref_seq_id)
                 print(result.to_table_line())
             except NoAlignmentFoundError:
                 sys.stderr.write(
