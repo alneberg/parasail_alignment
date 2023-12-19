@@ -2,3 +2,4 @@ parasail
 pre-commit
 fastq >= 2.0.2
 miniFasta
+editdistance

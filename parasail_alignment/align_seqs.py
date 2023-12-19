@@ -1,3 +1,6 @@
+import sys
+
+import editdistance
 import fastq
 import miniFasta
 import parasail
@@ -38,16 +41,66 @@ def setup_matrix():
 
 
 class AlignmentResult:
-    def __init__(self, query_seq, alignment_line, ref_seq, adapter1, barcode, adapter2):
+    def __init__(
+        self,
+        query_seq,
+        alignment_line,
+        ref_seq,
+        adapter1,
+        adapter1_ed,
+        barcode,
+        adapter2,
+        adapter2_ed,
+    ):
         self.query_seq = query_seq
         self.alignment_string = alignment_line
         self.ref_seq = ref_seq
         self.adapter1 = adapter1
+        self.adapter1_ed = adapter1_ed
         self.barcode = barcode
         self.adapter2 = adapter2
+        self.adapter2_ed = adapter2_ed
+        self.query_id = None
+        self.ref_id = None
 
     def __str__(self):
         return f"Query:\t{self.query_seq}\nAlign:\t{self.alignment_string}\nRef:\t{self.ref_seq}"
+
+    def add_ids(self, query_id, ref_id):
+        self.query_id = query_id
+        self.ref_id = ref_id
+
+    def to_table_line(self, separator="\t"):
+        return separator.join(
+            [
+                self.query_id,
+                self.ref_id,
+                self.query_seq,
+                self.alignment_string,
+                self.ref_seq,
+                self.adapter1,
+                self.adapter1_ed,
+                self.barcode,
+                self.adapter2,
+                self.adapter2_ed,
+            ]
+        )
+
+    def table_header_line(separator="\t"):
+        return separator.join(
+            [
+                "query_id",
+                "ref_id",
+                "query_seq",
+                "alignment_string",
+                "ref_seq",
+                "adapter1",
+                "adapter1_ed",
+                "barcode",
+                "adapter2",
+                "adapter2_ed",
+            ]
+        )
 
 
 def align_single_seq(query_seq: str, ref_seq: str):
@@ -74,17 +127,19 @@ def align_single_seq(query_seq: str, ref_seq: str):
 
     ns_in_input = list(find("N", ref_seq))
     barcode_length = len(ns_in_input)
+    adapter1_probe_seq = ref_seq[0 : (barcode_length + 1)]
+    adapter2_probe_seq = ref_seq[(barcode_length + 1) :]
 
     idxs = list(find("N", result.traceback.ref))
 
-    # Also stolen from sockeye
+    # TODO handle ref_seq with no Ns (i.e. single index)
     if len(idxs) > 0:
         # The Ns in the probe successfully aligned to sequence
         bc_start = min(idxs)
 
         # The read1 adapter comprises the first part of the alignment
         adapter1 = result.traceback.query[0:bc_start]
-        # adapter1_ed = edit_distance(adapter1, adapter1_probe_seq)
+        adapter1_ed = editdistance.eval(adapter1, adapter1_probe_seq)
 
         # The barcode + UMI sequences in the read correspond to the
         # positions of the aligned Ns in the probe sequence
@@ -93,17 +148,19 @@ def align_single_seq(query_seq: str, ref_seq: str):
         ]
 
         adapter2 = result.traceback.query[(bc_start + barcode_length) :]
+        adapter2_ed = editdistance.eval(adapter2, adapter2_probe_seq)
 
-        print(
-            AlignmentResult(
-                query_seq=result.traceback.query,
-                alignment_line=result.traceback.comp,
-                ref_seq=result.traceback.ref,
-                adapter1=adapter1,
-                barcode=inferred_barcode,
-                adapter2=adapter2,
-            )
+        AlignmentResult(
+            query_seq=result.traceback.query,
+            alignment_line=result.traceback.comp,
+            ref_seq=result.traceback.ref,
+            adapter1=adapter1,
+            adapter1_ed=adapter1_ed,
+            barcode=inferred_barcode,
+            adapter2=adapter2,
+            adapter2_ed=adapter2_ed,
         )
+
     else:
         raise NoAlignmentFoundError("No alignment found")
 
@@ -112,18 +169,24 @@ def align_multiple_seq(query_file: str, ref_file: str):
     # Populate a list to enable the reuse of the iterator, otherwise it will be empty after the first iteration
     ref_seqs = [ref_seq for ref_seq in miniFasta.read(ref_file)]
 
+    print(AlignmentResult.table_header_line())
+
     for query_seq in fastq.read(query_file):
         for ref_seq in ref_seqs:
             try:
-                print(align_single_seq(query_seq.getSeq(), ref_seq.getSeq()))
+                result = align_single_seq(query_seq.getSeq(), ref_seq.getSeq())
+                result.add_ids(
+                    query_seq.getHead().split(" ")[0], ref_seq.getHead().split(" ")[0]
+                )
+                print(result.to_table_line())
             except NoAlignmentFoundError:
-                print(
+                sys.stderr.write(
                     f"No alignment found for {query_seq.getHead().split(' ')[0]} and {ref_seq.getHead().split(' ')[0]}"
                 )
 
 
 def align_single_wrapper(args):
-    align_single_seq(args.query_seq, args.ref_seq)
+    print(align_single_seq(args.query_seq, args.ref_seq))
 
 
 def align_multiple_wrapper(args):
