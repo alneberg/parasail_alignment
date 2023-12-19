@@ -63,10 +63,10 @@ class AlignmentResult:
         self.alignment_string = alignment_line
         self.ref_seq = ref_seq
         self.adapter1 = adapter1
-        self.adapter1_ed = adapter1_ed
+        self.adapter1_ed = str(adapter1_ed)
         self.barcode = barcode
         self.adapter2 = adapter2
-        self.adapter2_ed = adapter2_ed
+        self.adapter2_ed = str(adapter2_ed)
         self.query_id = None
         self.ref_id = None
 
@@ -144,8 +144,8 @@ def align_single_seq(query_seq: str, ref_seq: str):
 
     ns_in_input = list(find("N", ref_seq))
     barcode_length = len(ns_in_input)
-    adapter1_probe_seq = ref_seq[0 : (barcode_length + 1)]
-    adapter2_probe_seq = ref_seq[(barcode_length + 1) :]
+    adapter1_probe_seq = ref_seq[0 : ns_in_input[0]]
+    adapter2_probe_seq = ref_seq[(ns_in_input[-1]+1) :]
 
     idxs = list(find("N", result.traceback.ref))
 
@@ -169,7 +169,9 @@ def align_single_seq(query_seq: str, ref_seq: str):
         adapter2 = result.traceback.query[(bc_start + barcode_length) :]
         adapter2_ed = editdistance.eval(adapter2, adapter2_probe_seq)
 
-        AlignmentResult(
+        # TODO add alginment end as well
+
+        return AlignmentResult(
             query_seq=result.traceback.query,
             alignment_line=result.traceback.comp,
             ref_seq=result.traceback.ref,
@@ -187,15 +189,16 @@ def align_single_seq(query_seq: str, ref_seq: str):
 def align_multiple_seq(query_file: str, ref_file: str):
     # Populate a list to enable the reuse of the iterator, otherwise it will be empty after the first iteration
     ref_seqs = [ref_seq for ref_seq in miniFasta.read(ref_file)]
+    ref_seq_ids = [ref_seq.getHead().split(" ")[0][1:] for ref_seq in ref_seqs]
 
     print(AlignmentResult.table_header_line())
 
     for query_seq in fastq.read(query_file):
-        for ref_seq in ref_seqs:
+        for ref_seq, ref_seq_id in zip(ref_seqs, ref_seq_ids):
             try:
                 result = align_single_seq(query_seq.getSeq(), ref_seq.getSeq())
                 result.add_ids(
-                    query_seq.getHead().split(" ")[0], ref_seq.getHead().split(" ")[0]
+                    query_seq.getHead().split(" ")[0], ref_seq_id
                 )
                 print(result.to_table_line())
             except NoAlignmentFoundError:
