@@ -1,4 +1,5 @@
-import fastq as fq
+import fastq
+import miniFasta
 import parasail
 
 
@@ -108,9 +109,9 @@ def align_single_seq(query_seq: str, ref_seq: str):
 
 
 def align_multiple_seq(query_file: str, ref_file: str):
-    ref_seqs = fq.read(ref_file)
+    ref_seqs = miniFasta.read(ref_file)
 
-    for query_seq in fq.read(query_file):
+    for query_seq in fastq.read(query_file):
         for ref_seq in ref_seqs:
             try:
                 print(align_single_seq(query_seq.getSeq(), ref_seq.getSeq()))
