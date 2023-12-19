@@ -29,6 +29,13 @@ def find(char, string):
             yield i
 
 
+COMP = {"A": "T", "C": "G", "G": "C", "T": "A", "N": "N"}
+
+
+def reverse_complementary(sequence: str):
+    return "".join([COMP[base] for base in sequence[::-1]])
+
+
 def setup_matrix():
     matrix = parasail.matrix_create("ACGTN", 5, -1)
 
@@ -123,7 +130,17 @@ def align_single_seq(query_seq: str, ref_seq: str):
     """
     matrix = setup_matrix()
 
-    result = parasail.sw_trace(query_seq, ref_seq, 2, 4, matrix)
+    result_plus = parasail.sw_trace(query_seq, ref_seq, 2, 4, matrix)
+    result_minus = parasail.sw_trace(
+        reverse_complementary(query_seq), ref_seq, 2, 4, matrix
+    )
+
+    if result_plus.score > result_minus.score:
+        result = result_plus
+        orientation = "+"
+    else:
+        result = result_minus
+        orientation = "-"
 
     ns_in_input = list(find("N", ref_seq))
     barcode_length = len(ns_in_input)
@@ -137,6 +154,8 @@ def align_single_seq(query_seq: str, ref_seq: str):
         # The Ns in the probe successfully aligned to sequence
         bc_start = min(idxs)
 
+        if orientation:
+            pass
         # The read1 adapter comprises the first part of the alignment
         adapter1 = result.traceback.query[0:bc_start]
         adapter1_ed = editdistance.eval(adapter1, adapter1_probe_seq)
