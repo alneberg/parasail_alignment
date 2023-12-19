@@ -118,3 +118,11 @@ def align_multiple_seq(query_file: str, ref_file: str):
                 print(
                     f"No alignment found for {query_seq.getHead().split(' ')[0]} and {ref_seq.getHead().split(' ')[0]}"
                 )
+
+
+def align_single_wrapper(args):
+    align_single_seq(args.query_seq, args.ref_seq)
+
+
+def align_multiple_wrapper(args):
+    align_multiple_seq(args.query_seq_file, args.ref_seq_file)
