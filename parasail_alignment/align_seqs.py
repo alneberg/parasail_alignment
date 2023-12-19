@@ -154,8 +154,8 @@ def align_single_seq(query_seq: str, ref_seq: str):
         # The Ns in the probe successfully aligned to sequence
         bc_start = min(idxs)
 
-        if orientation:
-            pass
+
+            
         # The read1 adapter comprises the first part of the alignment
         adapter1 = result.traceback.query[0:bc_start]
         adapter1_ed = editdistance.eval(adapter1, adapter1_probe_seq)
@@ -169,7 +169,13 @@ def align_single_seq(query_seq: str, ref_seq: str):
         adapter2 = result.traceback.query[(bc_start + barcode_length) :]
         adapter2_ed = editdistance.eval(adapter2, adapter2_probe_seq)
 
-        # TODO add alginment end as well
+        aligned_length = len(result.traceback.query.replace('-', '')) 
+        if orientation == '-':
+            alignment_start = len(query_seq) - (result.end_query + 1 - aligned_length)
+            alignment_end = len(query_seq) - (result.end_query + 1)
+        else:
+            alignment_end = result.end_query
+            alignment_start = result.end_query + 1 - aligned_length
 
         return AlignmentResult(
             query_seq=result.traceback.query,
@@ -181,7 +187,6 @@ def align_single_seq(query_seq: str, ref_seq: str):
             adapter2=adapter2,
             adapter2_ed=adapter2_ed,
         )
-
     else:
         raise NoAlignmentFoundError("No alignment found")
 
