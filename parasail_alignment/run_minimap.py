@@ -11,13 +11,17 @@ For each barcode:
     entropy calculation over the adapter + barcode + adapter (one for each i5 and i7)
 """
 import argparse
+import itertools
 import logging
 import os
 import subprocess
 import uuid
+from collections import deque
 
+import numpy as np
 import pandas as pd
 import yaml
+from scipy.stats import entropy
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("anglerfish")
@@ -168,6 +172,54 @@ def parse_paf_lines(paf, min_qual=10, complex_identifier=False):
     return entries
 
 
+# Rolling window implementation
+def window(seq, n=3):
+    win = deque(maxlen=n)
+    for char in seq:
+        win.append(char)
+        if len(win) >= n:
+            yield tuple(win)
+
+
+# Each sequence gives matrix of position and k-mer occurence.
+def seq_to_count_matrix(dna_seq, kmer_positions, max=50, k=2):
+    """max is the length of the prefix that will be considered"""
+    if len(dna_seq) < max:
+        max = len(dna_seq)
+
+    matrix = np.zeros((4**k, max - k + 1))
+    for i, word in enumerate(window(dna_seq[:max], n=k)):
+        matrix[kmer_positions[word], i] += 1
+    return matrix
+
+
+def count_for_seqs(seqs, kmer_positions, insert_length, k=2):
+    seqs = [seq for seq in seqs if len(seq) == insert_length]
+    matrices = [seq_to_count_matrix(seq, kmer_positions, max=50, k=k) for seq in seqs]
+    stacked = np.stack(matrices)
+    sum_a = np.sum(stacked, axis=0)
+    even_dist = np.ones(4**k) / (4**k)
+    entropies = [entropy(a, even_dist) for a in sum_a.T]
+
+    return entropies
+
+
+def extract_inserts_from_df(df):
+    mim_re_cs = r"^cs:Z::[1-9][0-9]*\+([a,c,t,g]*):[1-9][0-9]*$"
+    return df.cs.str.extract(mim_re_cs, expand=False).str.upper().tolist()
+
+
+def calculate_relative_entropy(df_good_hits, args, insert_length):
+    all_kmers = itertools.product("ACTG", repeat=args.kmer_length)
+    kmer_positions = dict(
+        (kmer, position)
+        for kmer, position in zip(all_kmers, range(4**args.kmer_length))
+    )
+    seqs = extract_inserts_from_df(df_good_hits)
+    entropies = count_for_seqs(seqs, kmer_positions, insert_length, k=args.kmer_length)
+    return entropies
+
+
 def main(args):
     run_uuid = str(uuid.uuid4())
     try:
@@ -223,7 +275,7 @@ def main(args):
                 # The cs string filter is quite strict, requiring 10+ perfect match before insert and 10+ perfect match after insert
                 # The cg string allows for mismatches within the matching strings but no insertions or deletions
                 # All cg string matches are also cs string matches (subset) but not vice versa
-                mim_re_cs = r"^cs:Z::[1-9][0-9]*\+[a,c,t,g]*:[1-9][0-9]*$"  # Match Insert Match = mim
+                mim_re_cs = r"^cs:Z::[1-9][0-9]*\+([a,c,t,g]*):[1-9][0-9]*$"  # Match Insert Match = mim
                 mim_re_cg = r"^cg:Z:([0-9]*)M([0-9]*)I([0-9]*)M$"
                 df_mim = df[df.cs.str.match(mim_re_cs)]
 
@@ -310,6 +362,13 @@ def main(args):
             df_good_hits = entries[adaptor.name][adaptor_end_name]
             if adaptor_end.has_index():
                 median_insert_length = df_good_hits["insert_len"].median()
+                if median_insert_length > args.umi_threshold:
+                    entropies = calculate_relative_entropy(
+                        df_good_hits, args, median_insert_length
+                    )
+                    log.info(
+                        f"{adaptor.name}:{adaptor_end_name} had entropy {entropies}"
+                    )
                 insert_lengths = df_good_hits["insert_len"].value_counts()
                 log.info(
                     f"{adaptor.name}:{adaptor_end_name} had {len(df_good_hits)} good hits with median insert length {median_insert_length}"
@@ -376,6 +435,20 @@ if __name__ == "__main__":
         "--min_hits_per_adaptor",
         help="Minimum number of good hits for an adaptor to be included in the analysis",
         default=50,
+        type=int,
+    )
+    parser.add_argument(
+        "-u",
+        "--umi_threshold",
+        help="Minimum number of bases in insert to perform entropy calculation",
+        default=11,
+        type=float,
+    )
+    parser.add_argument(
+        "-k",
+        "--kmer_length",
+        help="Length of k-mers to use for entropy calculation",
+        default=2,
         type=int,
     )
     args = parser.parse_args()
